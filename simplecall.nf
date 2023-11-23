@@ -19,13 +19,17 @@ params.input_type="bam"
 
 
 autosomes = 1..22
-chroms    = autosomes +  ['X','Y','M'] 
+params.chroms    = autosomes +  ['X','Y','M'] 
+
+
+chroms=params.chroms
+chroms = 15..22
 
 // Do an initial calling of the variants
 // Note that this is done per chromosome
 // -- so for each sample of input we have multiple processes running
 process deepcall {
-  maxForks 38
+  maxForks 80
   label 'deepvariant'
   cpus params.call_cpus
   memory params.call_mem
@@ -81,7 +85,7 @@ process GLnexus {
 
 
 workflow {
-    bf = Channel.fromFilePairs("${params.bam}/*${params.input_type}*",size:2) \
+    bf = Channel.fromFilePairs("${params.bam}*${params.input_type}*",size:2) \
 	    { file -> file.simpleName }.\
 	    map { b, f -> [b,f[0],f[1]] }
     deepcall(bf,ref_seq,ref_fai,chroms) //| groupTuple | GLnexus

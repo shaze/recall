@@ -1,87 +1,29 @@
-nextflow.enable.dsl=1
 
-gvcfA = Channel.fromPath("/external/diskB/recall/gvcf/[012M]*",type:'dir')
-gvcfS = Channel.fromPath("/external/diskB/recall/gvcf/[XY]",type:'dir')
+
+nextflow.enable.dsl=2
+
+gvcfs = Channel.fromPath(params.gvcfs,type:'dir')
+
 
 params.qual=20
 params.depth=25
-params.ref_seq = "/dataB/aux/38/Homo_sapiens_assembly38/Homo_sapiens_assembly38.fasta"
+params.max_size = 80000000
 params.output_dir="output"
+
+max_size = params.max_size
 
 ref=file(params.ref_seq)
 
+include { GLnexus } from "./modules/glnexus.nf"
 
 
-def memoryForChrom ( the_chrom ) {
-    chrom =  the_chrom.getName()
-    if (['X','01','02','03'].contains(chrom))
-	{ mem = "900.GB" }
-    else if (['14','15','16','17','18'].contains(chrom))
-	{ mem =  "500.GB" }
-    else if (['19','20','21','22'].contains(chrom))
-	{ mem = "400.GB" }
-    else if (['M'].contains(chrom))
-	{ mem = "200.GB" }
-    else if (['Y'].contains(chrom))
-	{ mem =  "250.GB" }
-    else
-	{mem = "700.GB" }
-    return mem
-}
-
-
-process GLnexusA {
-    scratch '/local/scott/$vdir'
-    memory { memoryForChrom(vdir) }
-    cpus   40
-    input:
-      path(vdir) from gvcfA
-    output:
-       path(bcf) into vcfA_ch
-       path(res) into timeA_ch
-    publishDir params.output_dir, pattern: "*.t"
-    script:
-       bcf="dv${vdir}.bcf"
-       res="dv${vdir}.t"
-       """
-       hostname 
-       /usr/bin/time -f "Elapsed time: %e; MAXRSS=%M" -o $res\
-            /opt/exp_soft/bioinf/GLnexus/1.4.1-220324/glnexus_cli  --config DeepVariantWGS $vdir/*vcf.gz > $bcf
-       """
-}
-
-
-
-process GLnexusS {
-    scratch '/local/scott/$vdir'
-    memory { memoryForChrom(vdir) }
-    cpus   40
-    input:
-      path(vdir) from gvcfS
-    output:
-       path(bcf) into vcfS_ch
-       path(res) into timeS_ch
-    publishDir params.output_dir, pattern: "*.t"
-    script:
-       bcf="dv${vdir}.bcf"
-       res="dv${vdir}.t"
-       """
-       hostname 
-       /usr/bin/time -f "Elapsed time: %e; MAXRSS=%M" -o $res\
-            /opt/exp_soft/bioinf/GLnexus/1.4.1-220324/glnexus_cli  --config DeepVariantWGS $vdir/*vcf.gz > $bcf
-       """
-}
-
-
-vcf_ch = vcfS_ch.mix(vcfA_ch)
-time_ch = timeS_ch.mix(timeA_ch)
 
 
 process filter {
    input:
-      file(bcf) from vcf_ch
+      file(bcf) 
    output:
-      file(filterbcf) into filter_ch
+      file(filterbcf) 
    script:
       filterbcf="${bcf}.filter.bcf"
    """
@@ -92,10 +34,9 @@ process filter {
 
 process norm {
     input:
-      file(ref)
-      file(bcf)  from filter_ch
+      tuple path(bcf), path(ref)
    output:
-      file(normbcf) into norm_ch
+      file(normbcf) 
    publishDir params.output_dir
    script:
       normbcf="${bcf.simpleName}.bcf"
@@ -106,7 +47,7 @@ process norm {
 
 process index {
    input:
-      file(bcf)  from norm_ch
+      file(bcf)  
    output:
       file(index)
    publishDir params.output_dir
@@ -115,4 +56,13 @@ process index {
    """
      bcftools index $bcf
    """
+}
+
+
+workflow {
+    main:
+       gvcfs = Channel.fromPath(params.gvcfs,type:'dir').view()
+       refc = Channel.fromPath(ref)
+       GLnexus(gvcfs)
+       filter(GLnexus.out.raw) | combine(refc) | norm | index 
 }

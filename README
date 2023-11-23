@@ -1,0 +1,28 @@
+
+
+## Workflows
+
+* simplecall.nf
+
+  This does the calling using `deepvariant`. NB relies on singularity.
+
+   ` nextflow run -c baylor.config simplecall.nf -profile singularity,slurm`
+
+
+*  glnexus.nf
+
+   Takes input from gvcfs and does joint calling. I did from the joint directory.
+
+## Files
+
+* build38sex.map: shows biological sex of all individuals
+
+## Directories
+
+* joint: this is the directory in which I ran the jointcalling
+
+  So `nextflow run ../glnexus.nf -profile slurm`
+
+  See the config files
+
+  * jointclean : the resulting bcfs
