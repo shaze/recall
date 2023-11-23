@@ -5,6 +5,7 @@ nextflow.enable.dsl=2
 gvcfs = Channel.fromPath(params.gvcfs,type:'dir')
 
 
+params.build="Specify build"   // b37, b38, t2t
 params.qual=20
 params.depth=25
 params.max_size = 80000000
